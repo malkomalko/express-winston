@@ -37,14 +37,15 @@ var requestWhitelist = [
 
 var bodyBlacklist     = [];
 var bodyWhitelist     = [];
+var headersBlacklist  = [];
 var responseWhitelist = ['statusCode'];
 
 var defaultRequestFilter = function (req, propName) {
   return req[propName];
 };
 
-var defaultResponseFilter = function (req, propName) {
-  return req[propName];
+var defaultResponseFilter = function (res, propName) {
+  return res[propName];
 };
 
 function filterObject (originalObj, whiteList, initialFilter) {
@@ -131,9 +132,19 @@ function logger (options) {
         meta.res = filterObject(res, responseWhitelist, options.responseFilter);
 
         if (_.contains(responseWhitelist, 'body')) {
-          meta.res.body = res._headers['content-type'].indexOf('json') >= 0
-            ? JSON.parse(chunk)
-            : chunk;
+          if (res._headers['content-type']) {
+            if (res._headers['content-type'].indexOf('json') >= 0) {
+              try {
+                meta.res.body = JSON.parse(chunk);
+              } catch (e) {}
+            }
+          }
+        }
+
+        if (headersBlacklist.length > 0) {
+          var keys = _.difference(_.keys(req.headers), headersBlacklist);
+          meta.req.headers = filterObject(
+            req.headers, keys, options.requestFilter);
         }
 
         bodyWhitelist = req._routeWhitelists.body || [];
@@ -185,6 +196,7 @@ module.exports.bodyWhitelist         = bodyWhitelist;
 module.exports.defaultRequestFilter  = defaultRequestFilter;
 module.exports.defaultResponseFilter = defaultResponseFilter;
 module.exports.errorLogger           = errorLogger;
+module.exports.headersBlacklist      = headersBlacklist;
 module.exports.logger                = logger;
 module.exports.requestWhitelist      = requestWhitelist;
 module.exports.responseWhitelist     = responseWhitelist;
